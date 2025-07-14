@@ -4,8 +4,9 @@ const cors = require('cors');
 const app = express();
 const bodyParser = require("body-parser");
 app.use(bodyParser.json())
-const {v4: uuidv4} = require('uuid')
-// Basic Configuration
+const dns = require('dns');
+const { URL } = require('url');
+
 const port = process.env.PORT || 3000;
 
 app.use(cors());
@@ -21,41 +22,39 @@ app.get('/api/hello', function(req, res) {
   res.json({ greeting: 'hello API' });
 });
 
-const urlDatabase = {};
+const urlDatabase = [];
+let id = 1;
 
-app.post("/shorten", (req, res)=>{
-  const original_url = req.body
-  if(!original_url){
-    return res.status(400).json({error : "Original URL is required"});
-  }
-  if(!validator.isURL(original_url,{require_protocol : true})){
-    return res.status(400).json({error : "Invalid URL format. Include 'http://' or 'https://'"})
-  }
-  try{
-    new URL(original_url);
-  }catch(err){
-    return res.status(400).json({err:'URL invalide'});
+app.post('/api/shorturl', (req, res) => {
+  let originalUrl = req.body.url;
+  let hostname;
+  try {
+    hostname = new URL(originalUrl).hostname;
+  } catch (err) {
+    return res.json({ error: 'invalid url' });
   }
 
-  const shortID = uuidv4().substring(0,6);
+  dns.lookup(hostname, (err) => {
+    if (err) {
+      return res.json({ error: 'invalid url' });
+    } else {
+      let entry = { original_url: originalUrl, short_url: id };
+      urlDatabase[id] = originalUrl;
+      id++;
+      res.json(entry);
+    }
+  });
+});
 
-  urlDatabase[shortID] = original_url;
-
-  res.json({
-    original_url,
-    shortURL: `http://localhost:3000/${shortID}`
-  })
-})
-
-app.get("/:shortId", (req, res) =>{
-  const shortId = req.params;
-  const original_url = urlDatabase[shortId];
-  if(original_url){
-    res.redirect(original_url)
-  }else{
-    res.status(404).send('URL non trouvé')
+app.get('/api/shorturl/:short_url', (req, res) => {
+  const shortUrl = req.params.short_url;
+  const originalUrl = urlDatabase[shortUrl];
+  if (originalUrl) {
+    res.redirect(originalUrl);
+  } else {
+    res.json({ error: 'No short URL found for given input' });
   }
-})
+});
 
 app.listen(port, function() {
   console.log(`Listening on port ${port}`);
