@@ -7,6 +7,8 @@ app.use(bodyParser.json())
 const dns = require('dns');
 const { URL } = require('url');
 
+app.use(bodyParser.urlencoded({ extended: false }));
+
 const port = process.env.PORT || 3000;
 
 app.use(cors());
